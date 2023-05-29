@@ -1,0 +1,97 @@
+# main function -------------------------------------------------------
+
+master <- function(directory){
+
+  # Leer los nombres de los archivos en la carpeta
+  nombres_archivos <- list.files(path = directory)
+
+  partes = matrix(data = NA,nrow = length(nombres_archivos),ncol = 3)
+  dfi = data.frame(system = NULL,
+                   frame = NULL,
+                   grid = NULL,
+                   ligand = NULL,
+                   energy = NULL,
+                   pose = NULL)
+
+  for(i in 1:length(nombres_archivos)){
+
+    cat("Documento",i,"de",length(nombres_archivos),"\n")
+
+    data <- readLines(paste0("./Files/",nombres_archivos[i]))
+    df1 <- parseador(data)
+    m = nrow(df1)
+    df1$pose <- rep(1:9,m/9)
+
+    #Separar las partes del nombre del archivo
+    partes[i,] <- strsplit(nombres_archivos[i], "_frame|_conf|.log") %>% unlist
+
+    dfi0 <- data.frame(system = rep(partes[i,1],m),
+                       frame = rep(partes[i,2],m),grid = rep(partes[i,3],m))
+    dfi_temp <- cbind(dfi0,df1)
+    dfi <- rbind(dfi,dfi_temp)
+  }
+
+  #parseando el nombre del ligand
+  dfi$ligand <- as.factor(unlist(lapply(as.character(dfi$ligand), extraer_despues_out)))
+  return(dfi)
+}
+
+
+# Parseador ---------------------------------------------------------------
+
+parseador <- function(data){
+  # Initialize variables to store the parsed data
+  ligands <- list()
+  modes <- list()
+  affinities <- list()
+  rmsd_lb <- list()
+  rmsd_ub <- list()
+
+  # Loop over the lines of the data
+  for (i in seq_along(data)) {
+    # Use regular expressions to parse the ligand name and the data for each mode
+    if (grepl("Refining ligand", data[i])) {
+      ligand <- gsub("^.*pdbqt_frame19_config1_out/", "", data[i])
+      ligand <- gsub(" results...done.$", "", ligand)
+      modes[[ligand]] <- c()
+      affinities[[ligand]] <- c()
+      rmsd_lb[[ligand]] <- c()
+      rmsd_ub[[ligand]] <- c()
+    } else if (grepl("\\d+\\s+(-?\\d+\\.\\d+)\\s+(-?\\d+\\.\\d+)\\s+(-?\\d+\\.\\d+)", data[i], perl=TRUE)) {
+      mode_data <- strsplit(trimws(data[i]), "\\s+")
+      modes[[ligand]] <- c(modes[[ligand]], as.numeric(mode_data[[1]][1]))
+      affinities[[ligand]] <- c(affinities[[ligand]], as.numeric(mode_data[[1]][2]))
+      rmsd_lb[[ligand]] <- c(rmsd_lb[[ligand]], as.numeric(mode_data[[1]][3]))
+      rmsd_ub[[ligand]] <- c(rmsd_ub[[ligand]], as.numeric(mode_data[[1]][4]))
+    }
+  }
+
+  # # Print the parsed data
+  # for (i in seq_along(ligands)) {
+  #   cat(ligands[[i]], "\n")
+  #   cat("mode\taffinity\trmsd_l.b.\trmsd_u.b.\n")
+  #   for (j in seq_along(modes[[i]])) {
+  #     cat(modes[[i]][j], "\t", affinities[[i]][j], "\t", rmsd_lb[[i]][j], "\t", rmsd_ub[[i]][j], "\n")
+  #   }
+  #   cat("\n")
+  # }
+
+  a <- data.frame(affinities)
+  n <- reshape2::melt(a, id.vars = character(), measure.vars = colnames(a))
+  #  n <- n[order(a$value),]
+  colnames(n) <- c("ligand","energy")
+
+  # as.character(n$ligand)[1]
+  # strsplit(as.character(n$ligand)[1], "_out|")
+
+  return(n)
+}
+
+
+# Extrae ligand ----------------------------------------------------------
+
+# Función para extraer la parte del texto después de "out."
+extraer_despues_out <- function(texto) {
+  partes <- strsplit(texto, "out\\.")
+  return(partes[[1]][2])
+}
