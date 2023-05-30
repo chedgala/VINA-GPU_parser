@@ -1,4 +1,4 @@
-# Calcium Alginate Chitosan Virtual Screening Analysis
+# AutoDock Vina GPU Virtual Screening Statistical Analysis
 
 This repository contains R scripts for running a statistical analysis on the output files of AutoDock Vina GPU virtual screenings. It specifically focuses on data analysis for the scientific paper "Calcium-alginate-chitosan nanoparticle as a potential solution for environmental pesticide removal, a computational approach."
 
